@@ -1,13 +1,18 @@
+using System;
 using UnityEngine;
 using Newtonsoft.Json;
 using System.Collections;
 using System.Collections.Generic;
+using Random = UnityEngine.Random;
 
 public class ThirdBaseModule : MonoBehaviour
 {
 	public KMSelectable[] buttons;
 	public Transform[] LEDs;
 	public TextMesh Display;
+
+    private static int ModuleIDCounter = 1;
+    private int ModuleID;
 
 	string[] phrase = new string[28] {"NHXS", "IH6X", "XI8Z", "I8O9", "XOHZ", "H68S", "8OXN", "Z8IX", "SXHN", "6NZH", "H6SI", "6O8I", "NXO8", "66I8", "S89H", "SNZX", "9NZS", "8I99", "ZHOX", "SI9X", "SZN6", "ZSN8", "HZN9", "X9HI", "IS9H", "XZNS", "X6IS", "8NSZ"};
 
@@ -51,6 +56,7 @@ public class ThirdBaseModule : MonoBehaviour
 
 	void Start()
 	{
+	    ModuleID = ModuleIDCounter++;
 		Init();
 
 		GetComponent<KMBombModule>().OnActivate += ActivateModule;
@@ -63,7 +69,7 @@ public class ThirdBaseModule : MonoBehaviour
 			TextMesh buttonTextMesh = buttons[i].GetComponentInChildren<TextMesh>();
 			buttonTextMesh.text = " ";
 			int j = i;
-			buttons[i].OnInteract += delegate () {buttons[j].AddInteractionPunch(0.3f); OnPress(j == solution); return false; };
+			buttons[i].OnInteract += delegate () {buttons[j].AddInteractionPunch(0.3f); OnPress(j,solution); return false; };
 		}
 
 		for (int i = 0; i < LEDs.Length; i++)
@@ -88,7 +94,7 @@ public class ThirdBaseModule : MonoBehaviour
 		StartCoroutine(NewStage(true));
 	}
 
-	void OnPress(bool correctButton)
+	void OnPress(int button, int solution)
 	{
 		GetComponent<KMAudio> ().PlayGameSoundAtTransform (KMSoundOverride.SoundEffect.ButtonPress, transform);
 
@@ -96,8 +102,9 @@ public class ThirdBaseModule : MonoBehaviour
 		{
 			if (isActivated)
 			{
-				if (correctButton)
+				if (button == solution)
 				{
+				    Debug.LogFormat("[Third Base #{0}] Stage {1} Answer correct", ModuleID, stage+1);
                     foreach (MeshRenderer Render in LEDs[stage].GetComponentsInChildren<MeshRenderer>())
                     {
                         if (Render.name == "On")
@@ -123,6 +130,7 @@ public class ThirdBaseModule : MonoBehaviour
 				}
 				else
 				{
+                    Debug.LogFormat("[Third Base #{0}] Stage {1} Answer incorrect, Expected {2}, Pressed {3}",ModuleID,stage+1,phrase[buttonNum[solution]], phrase[buttonNum[button]]);
 					GetComponent<KMBombModule> ().HandleStrike ();
 					StartCoroutine(NewStage(false));
 				}
@@ -195,8 +203,30 @@ public class ThirdBaseModule : MonoBehaviour
 		Display.text = phrase[displayNum];
 		isActivated = true;
 
-		Debug.Log(phrase[displayNum]);
-        Debug.Log(phrase[buttonNum[position[displayNum]]]);
-        Debug.Log(phrase[buttonNum[solution]]);
+		Debug.LogFormat("[Third Base #{0}] - Display Phrase = {1}, Buttons = {2},{3},{4},{5},{6},{7}, Button to Look at = {8}, Solution = {9}",
+            ModuleID,phrase[displayNum],
+            phrase[buttonNum[0]],phrase[buttonNum[1]],phrase[buttonNum[2]],phrase[buttonNum[3]],phrase[buttonNum[4]],phrase[buttonNum[5]],
+            phrase[buttonNum[position[displayNum]]],
+            phrase[buttonNum[solution]]);
+    }
+
+    KMSelectable[] ProcessTwitchCommand(string command)
+    {
+        Debug.LogFormat("[Third Base TwitchPlays #{0}] - Raw Command \"{1}\"", ModuleID, command);
+        string[] split = command.ToUpperInvariant().Replace("0","O").Split(new[] {" "}, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var s in split)
+        {
+            for (var i = 0; i < 6; i++)
+                if (phrase[buttonNum[i]] == s)
+                {
+                    Debug.LogFormat("Found word {0}", s);
+                    return new[] {buttons[i]};
+                }
+            Debug.LogFormat("Could not Find word {0}", s);
+        }
+        if(split.Length > 1)
+            Debug.LogFormat("None of the words in the list were found");
+
+        return null;
     }
 }
